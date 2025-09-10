@@ -7,3 +7,5 @@ cargo test
 cargo run --example chat -- --rounds 3
 PQC:
 cargo build --features hybrid-pqc
+
+[![ci](https://github.com/akadilou/hardlock-snc/actions/workflows/ci.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/ci.yml)
