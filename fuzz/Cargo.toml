@@ -1,0 +1,27 @@
+[package]
+name = "hardlock-snc-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.hardlock-snc]
+path = ".."
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wire_unpack"
+path = "fuzz_targets/wire_unpack.rs"
+test = false
+doc = false
