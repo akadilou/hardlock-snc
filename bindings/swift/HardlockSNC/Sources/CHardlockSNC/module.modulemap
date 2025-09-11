@@ -1,0 +1,5 @@
+module CHardlockSNC {
+  header "hardlock_snc.h"
+  link "hardlock_snc"
+  export *
+}
