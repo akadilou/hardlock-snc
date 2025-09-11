@@ -16,3 +16,6 @@
 **/*.ratchet
 .kats/
 /devcontainer/.cache
+/.bench/
+/dist/
+/c_sample/sample

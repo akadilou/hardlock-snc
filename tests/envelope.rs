@@ -3,10 +3,11 @@ use rand::RngCore;
 
 #[test]
 fn token_roundtrip() {
-    let mut master = [0u8; 32]; rand::thread_rng().fill_bytes(&mut master);
+    let mut master = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut master);
     let k_s = derive_k_s(&master, b"salt");
     let expiry = 4102444800u64;
-    let sender_pub = [7u8;32];
+    let sender_pub = [7u8; 32];
     let scope = b"chat";
     let t = token_build(&k_s, expiry, &sender_pub, scope);
     let out = token_verify(&k_s, &t, 4100000000).expect("verify");
@@ -17,9 +18,10 @@ fn token_roundtrip() {
 
 #[test]
 fn token_expired() {
-    let mut master = [0u8; 32]; rand::thread_rng().fill_bytes(&mut master);
+    let mut master = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut master);
     let k_s = derive_k_s(&master, b"salt");
-    let t = token_build(&k_s, 1000, &[0u8;32], b"s");
+    let t = token_build(&k_s, 1000, &[0u8; 32], b"s");
     assert!(token_verify(&k_s, &t, 2000).is_none());
 }
 

@@ -1,18 +1,26 @@
+use hardlock_snc::crypto::hpke_hybrid::{hpke_accept, hpke_initiate};
 use hardlock_snc::identity::DeviceIdentity;
-use hardlock_snc::crypto::hpke_hybrid::{hpke_initiate, hpke_accept};
 use hardlock_snc::ratchet;
 use hardlock_snc::session::Session;
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
     let alice = DeviceIdentity::generate("alice".into(), "phone".into());
-    let bob   = DeviceIdentity::generate("bob".into(),   "laptop".into());
+    let bob = DeviceIdentity::generate("bob".into(), "laptop".into());
 
     let (enc, s_a) = hpke_initiate(&bob.x25519.public())?;
     let s_b = hpke_accept(&bob.x25519.sk.clone().try_into().unwrap(), &enc)?;
 
-    let mut ra = ratchet::init_initiator(s_a, alice.x25519.sk.clone().try_into().unwrap(), bob.x25519.public());
-    let mut rb = ratchet::init_responder(s_b, bob.x25519.sk.clone().try_into().unwrap(), alice.x25519.public());
+    let mut ra = ratchet::init_initiator(
+        s_a,
+        alice.x25519.sk.clone().try_into().unwrap(),
+        bob.x25519.public(),
+    );
+    let mut rb = ratchet::init_responder(
+        s_b,
+        bob.x25519.sk.clone().try_into().unwrap(),
+        alice.x25519.public(),
+    );
 
     let ad = b"hardlock/persist";
     let (h, n, ct) = ratchet::encrypt(&mut ra, ad, b"first");

@@ -1,11 +1,15 @@
-use hardlock_snc::wire::*;
 use hardlock_snc::ratchet::state::Header;
+use hardlock_snc::wire::*;
 
 #[test]
 fn pack_unpack_roundtrip() {
-    let h = Header{ dh_pub:[7u8;32], pn: 3, n: 9 };
-    let nonce = [5u8;24];
-    let ct = vec![1,2,3,4,5,6,7,8,9];
+    let h = Header {
+        dh_pub: [7u8; 32],
+        pn: 3,
+        n: 9,
+    };
+    let nonce = [5u8; 24];
+    let ct = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
     let frame = pack_message(0x0110, &h, &nonce, &ct, 64);
     let (ver, h2, n2, ct2) = unpack_message(&frame).expect("unpack");
     assert_eq!(ver, 0x0110);

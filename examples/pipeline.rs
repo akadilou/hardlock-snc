@@ -1,22 +1,35 @@
+use hardlock_snc::crypto::hpke_hybrid::{hpke_accept_with_binder, hpke_initiate_with_binder};
+use hardlock_snc::envelope::{apply_padding, derive_k_s, token_build, token_verify, PadProfile};
 use hardlock_snc::identity::DeviceIdentity;
-use hardlock_snc::crypto::hpke_hybrid::{hpke_initiate_with_binder, hpke_accept_with_binder};
 use hardlock_snc::ratchet;
-use hardlock_snc::wire::{pack_message, unpack_message};
-use hardlock_snc::envelope::{derive_k_s, token_build, token_verify, PadProfile, apply_padding};
 use hardlock_snc::suites;
+use hardlock_snc::wire::{pack_message, unpack_message};
 use hardlock_snc::HL_VERSION;
 
 fn main() -> anyhow::Result<()> {
     let alice = DeviceIdentity::generate("alice".into(), "phone".into());
-    let bob   = DeviceIdentity::generate("bob".into(),   "laptop".into());
+    let bob = DeviceIdentity::generate("bob".into(), "laptop".into());
 
     let (enc, s_a, binder) = hpke_initiate_with_binder(&bob.x25519.public(), suites::HL1_BASE)?;
-    let s_b = hpke_accept_with_binder(suites::HL1_BASE, &bob.x25519.sk.clone().try_into().unwrap(), &enc, &binder)?;
+    let s_b = hpke_accept_with_binder(
+        suites::HL1_BASE,
+        &bob.x25519.sk.clone().try_into().unwrap(),
+        &enc,
+        &binder,
+    )?;
 
-    let mut ra = ratchet::init_initiator(s_a, alice.x25519.sk.clone().try_into().unwrap(), bob.x25519.public());
-    let mut rb = ratchet::init_responder(s_b, bob.x25519.sk.clone().try_into().unwrap(), alice.x25519.public());
+    let mut ra = ratchet::init_initiator(
+        s_a,
+        alice.x25519.sk.clone().try_into().unwrap(),
+        bob.x25519.public(),
+    );
+    let mut rb = ratchet::init_responder(
+        s_b,
+        bob.x25519.sk.clone().try_into().unwrap(),
+        alice.x25519.public(),
+    );
 
-    let master = [9u8;32];
+    let master = [9u8; 32];
     let k_s = derive_k_s(&master, b"salt");
     let token = token_build(&k_s, 4102444800, &alice.x25519.public(), b"chat");
 

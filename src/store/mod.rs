@@ -1,7 +1,7 @@
-pub mod mem;
 pub mod fs;
+pub mod mem;
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 
 pub trait StateStore {
     /// Sauvegarde sérialisée.

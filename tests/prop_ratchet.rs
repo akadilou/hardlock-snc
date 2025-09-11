@@ -1,5 +1,5 @@
-use hardlock_snc::identity::DeviceIdentity;
 use hardlock_snc::crypto::hpke_hybrid::hpke_initiate;
+use hardlock_snc::identity::DeviceIdentity;
 use hardlock_snc::ratchet;
 use proptest::prelude::*;
 
