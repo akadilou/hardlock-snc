@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Hardlock - Système Nerveux Central (HPKE handshake + Double Ratchet + XChaCha20-Poly1305 AEAD)."
-repository = "https://example.com/hardlock-snc"
+repository = "https://github.com/akadilou/hardlock-snc"
 keywords = ["hpke","double-ratchet","x25519","ed25519","xchacha20poly1305","argon2","e2ee"]
 
 [features]
@@ -40,3 +40,8 @@ time = { version = "0.3", features = ["formatting"] }
 [dev-dependencies]
 proptest = "1.5"
 criterion = "0.5"
+
+[lib]
+name = "hardlock_snc"
+path = "src/lib.rs"
+crate-type = ["rlib","cdylib"]

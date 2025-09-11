@@ -1,10 +1,10 @@
-# Hardlock-SNC — Perfs
+# Hardlock-SNC — Performance
 
 ## Environnement
-CPU:
-RAM:
-OS:
-Rust:
+- CPU: à préciser
+- RAM: à préciser
+- OS: à préciser
+- Rust: à préciser
 
 ## HPKE (latence)
 - Base/initiate: …
@@ -18,18 +18,14 @@ Rust:
 - Seal 64 KiB: …
 - Open 64 KiB: …
 
-## Argon2id (coût KDF)
+## Argon2id (coût)
 - FAST (64 MiB): …
 - BALANCED (256 MiB): …
 - STRONG (1 GiB): …
 
-## Commandes
+## Reproduction
+```bash
 cargo bench --bench hpke_bench
 cargo bench --bench aead_bench
 cargo bench --bench argon_bench
 
-## Benches HPKE
-
-## Benches AEAD
-
-## Benches Argon2

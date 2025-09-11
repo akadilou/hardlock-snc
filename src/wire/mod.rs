@@ -65,3 +65,8 @@ pub fn unpack_message(b: &[u8]) -> anyhow::Result<(u16, Header, [u8;24], Vec<u8>
     if b.len() < end { anyhow::bail!("truncated pad"); }
     Ok((ver, hdr, nonce, ct))
 }
+
+pub fn pack_with_padding(ver: u16, header: &crate::ratchet::state::Header, nonce: &[u8;24], ct: &[u8], profile: crate::envelope::PadProfile) -> Vec<u8> {
+    let f = pack_message(ver, header, nonce, ct, 1);
+    crate::envelope::apply_padding(f, profile)
+}
