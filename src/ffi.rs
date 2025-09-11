@@ -13,16 +13,24 @@ pub struct RatchetHandle {
     ptr: *mut ratchet::state::RatchetState,
 }
 
+/// # Safety
+/// Le chargeur d’ABI C doit fournir un pointeur de fonction valide.
+/// Aucune précondition supplémentaire.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_consts_header_len() -> usize {
     HEADER_LEN
 }
 
+/// # Safety
+/// Le chargeur d’ABI C doit fournir un pointeur de fonction valide.
+/// Aucune précondition supplémentaire.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_consts_nonce_len() -> usize {
     XNONCE_LEN
 }
 
+/// # Safety
+/// `sk_out` et `pk_out` doivent pointer vers des buffers d’au moins 32 octets valides et mutables.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_x25519_keygen(sk_out: *mut u8, pk_out: *mut u8) -> c_int {
     if sk_out.is_null() || pk_out.is_null() {
@@ -34,6 +42,10 @@ pub unsafe extern "C" fn hardlock_x25519_keygen(sk_out: *mut u8, pk_out: *mut u8
     0
 }
 
+/// # Safety
+/// `pk_recipient32` doit pointer vers 32 octets lisibles.
+/// `enc_out` vers un buffer de capacité `enc_cap`.
+/// `okm_out32` vers 32 octets mutables.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_hpke_initiate(
     pk_recipient32: *const u8,
@@ -54,13 +66,13 @@ pub unsafe extern "C" fn hardlock_hpke_initiate(
     }
     ptr::copy_nonoverlapping(enc.as_ptr(), enc_out, enc.len());
     ptr::copy_nonoverlapping(okm.as_ptr(), okm_out32, 32);
-    if let Ok(v) = c_int::try_from(enc.len()) {
-        v
-    } else {
-        -5
-    }
+    c_int::try_from(enc.len()).unwrap_or(-5)
 }
 
+/// # Safety
+/// `sk_recipient32` doit pointer vers 32 octets lisibles.
+/// `enc_ptr..enc_ptr+enc_len` doit être lisible.
+/// `okm_out32` doit pointer vers 32 octets mutables.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_hpke_accept(
     sk_recipient32: *const u8,
@@ -81,6 +93,8 @@ pub unsafe extern "C" fn hardlock_hpke_accept(
     0
 }
 
+/// # Safety
+/// Tous les pointeurs doivent référencer 32 octets lisibles (`okm32`, `dh_s_priv32`, `dh_r_pub32`).
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_ratchet_new_initiator(
     okm32: *const u8,
@@ -101,6 +115,8 @@ pub unsafe extern "C" fn hardlock_ratchet_new_initiator(
     Box::into_raw(Box::new(RatchetHandle { ptr }))
 }
 
+/// # Safety
+/// Tous les pointeurs doivent référencer 32 octets lisibles (`okm32`, `dh_s_priv32`, `dh_r_pub32`).
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_ratchet_new_responder(
     okm32: *const u8,
@@ -121,6 +137,8 @@ pub unsafe extern "C" fn hardlock_ratchet_new_responder(
     Box::into_raw(Box::new(RatchetHandle { ptr }))
 }
 
+/// # Safety
+/// `h` doit être un pointeur valide créé par `hardlock_ratchet_new_*` et non libéré auparavant.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_ratchet_free(h: *mut RatchetHandle) {
     if h.is_null() {
@@ -132,6 +150,9 @@ pub unsafe extern "C" fn hardlock_ratchet_free(h: *mut RatchetHandle) {
     }
 }
 
+/// # Safety
+/// `h` doit être valide. `ad_ptr/pt_ptr` doivent être lisibles.
+/// `header_out/nonce_out/ct_out` doivent être mutables avec suffisamment de capacité (`ct_cap`).
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_ratchet_encrypt(
     h: *mut RatchetHandle,
@@ -167,13 +188,13 @@ pub unsafe extern "C" fn hardlock_ratchet_encrypt(
     ptr::copy_nonoverlapping(hb.as_ptr(), header_out, HEADER_LEN);
     ptr::copy_nonoverlapping(nonce.as_ptr(), nonce_out, XNONCE_LEN);
     ptr::copy_nonoverlapping(ct.as_ptr(), ct_out, ct.len());
-    if let Ok(v) = c_int::try_from(ct.len()) {
-        v
-    } else {
-        -5
-    }
+    c_int::try_from(ct.len()).unwrap_or(-5)
 }
 
+/// # Safety
+/// `h` doit être valide. `header_ptr` doit pointer vers `HEADER_LEN` octets.
+/// `nonce_ptr` vers `XNONCE_LEN` octets. `ct_ptr..ct_ptr+ct_len` lisibles.
+/// `pt_out` mutable avec `pt_cap` octets.
 #[no_mangle]
 pub unsafe extern "C" fn hardlock_ratchet_decrypt(
     h: *mut RatchetHandle,
@@ -218,9 +239,5 @@ pub unsafe extern "C" fn hardlock_ratchet_decrypt(
         return -4;
     }
     ptr::copy_nonoverlapping(pt.as_ptr(), pt_out, pt.len());
-    if let Ok(v) = c_int::try_from(pt.len()) {
-        v
-    } else {
-        -5
-    }
+    c_int::try_from(pt.len()).unwrap_or(-5)
 }
