@@ -1,3 +1,5 @@
+#![allow(clippy::missing_panics_doc)]
+
 use crate::crypto::aeadx::{open_xchacha, rand_nonce, seal_xchacha, KEY_LEN, XNONCE_LEN};
 use hkdf::Hkdf;
 use sha2::Sha256;
@@ -7,6 +9,7 @@ pub struct SenderToken {
     pub ct: Vec<u8>,
 }
 
+#[must_use]
 pub fn derive_k_s(master: &[u8], salt: &[u8]) -> [u8; KEY_LEN] {
     let hk = Hkdf::<Sha256>::new(Some(salt), master);
     let mut k = [0u8; KEY_LEN];
@@ -15,6 +18,7 @@ pub fn derive_k_s(master: &[u8], salt: &[u8]) -> [u8; KEY_LEN] {
     k
 }
 
+#[must_use]
 pub fn token_build(
     k_s: &[u8; KEY_LEN],
     expiry_unix_s: u64,
@@ -34,6 +38,7 @@ pub fn token_build(
     SenderToken { nonce, ct }
 }
 
+#[must_use]
 pub fn token_verify(
     k_s: &[u8; KEY_LEN],
     token: &SenderToken,
@@ -73,6 +78,7 @@ pub enum PadProfile {
     Throughput,
 }
 
+#[must_use]
 pub fn pad_bucket_for(len: usize, profile: PadProfile) -> usize {
     let buckets_stealth = [256, 512, 1024];
     let buckets_bal = [512, 1024, 2048];
@@ -88,10 +94,10 @@ pub fn pad_bucket_for(len: usize, profile: PadProfile) -> usize {
         }
     }
     let last = *buckets.last().unwrap();
-    let mult = (len + last - 1) / last;
-    mult * last
+    len.div_ceil(last).saturating_mul(last)
 }
 
+#[must_use]
 pub fn apply_padding(mut frame: Vec<u8>, profile: PadProfile) -> Vec<u8> {
     let target = pad_bucket_for(frame.len(), profile);
     if target > frame.len() {

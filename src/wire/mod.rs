@@ -103,6 +103,7 @@ pub fn unpack_message(b: &[u8]) -> anyhow::Result<(u16, Header, [u8; 24], Vec<u8
     Ok((ver, hdr, nonce, ct))
 }
 
+#[must_use]
 pub fn pack_with_padding(
     ver: u16,
     header: &crate::ratchet::state::Header,
