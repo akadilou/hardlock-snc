@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![allow(unsafe_code)]
 #![deny(clippy::all, clippy::pedantic)]
 
 pub mod crypto;
@@ -8,6 +8,9 @@ pub mod store;
 pub mod wire;
 pub mod session;
 pub mod kt;
+pub mod envelope;
+pub mod ffi;
+
 
 pub const HL_INFO: &str = "hardlock/v1.1";
 pub const HL_VERSION: u16 = 0x0110;
