@@ -70,8 +70,7 @@ pub fn token_verify(
     let scope = pt[off..off + sl].to_vec();
     Some((expiry, pk, scope))
 }
-
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum PadProfile {
     Stealth,
     Balanced,
@@ -105,3 +104,5 @@ pub fn apply_padding(mut frame: Vec<u8>, profile: PadProfile) -> Vec<u8> {
     }
     frame
 }
+
+pub mod transport;
