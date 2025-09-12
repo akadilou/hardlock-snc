@@ -241,3 +241,108 @@ pub unsafe extern "C" fn hardlock_ratchet_decrypt(
     ptr::copy_nonoverlapping(pt.as_ptr(), pt_out, pt.len());
     c_int::try_from(pt.len()).unwrap_or(-5)
 }
+
+/// # Safety
+/// `k_s32` doit pointer vers 32 octets lisibles, `sender_pub32` vers 32 octets,
+/// `scope_ptr..scope_ptr+scope_len` lisibles, `nonce_out` 24o mutables, `ct_out` capacité `ct_cap`.
+#[no_mangle]
+pub unsafe extern "C" fn hardlock_token_build(
+    k_s32: *const u8,
+    expiry_unix_s: u64,
+    sender_pub32: *const u8,
+    scope_ptr: *const u8,
+    scope_len: usize,
+    nonce_out: *mut u8,
+    ct_out: *mut u8,
+    ct_cap: usize,
+) -> c_int {
+    if k_s32.is_null() || sender_pub32.is_null() || ct_out.is_null() || nonce_out.is_null() {
+        return -1;
+    }
+    let k_s = {
+        let mut k = [0u8; 32];
+        ptr::copy_nonoverlapping(k_s32, k.as_mut_ptr(), 32);
+        k
+    };
+    let sp = {
+        let mut p = [0u8; 32];
+        ptr::copy_nonoverlapping(sender_pub32, p.as_mut_ptr(), 32);
+        p
+    };
+    let scope = if scope_ptr.is_null() {
+        &[][..]
+    } else {
+        std::slice::from_raw_parts(scope_ptr, scope_len)
+    };
+    let t = crate::envelope::token_build(&k_s, expiry_unix_s, &sp, scope);
+    if t.ct.len() > ct_cap {
+        return -2;
+    }
+    ptr::copy_nonoverlapping(
+        t.nonce.as_ptr(),
+        nonce_out,
+        crate::crypto::aeadx::XNONCE_LEN,
+    );
+    ptr::copy_nonoverlapping(t.ct.as_ptr(), ct_out, t.ct.len());
+    c_int::try_from(t.ct.len()).unwrap_or(-5)
+}
+
+/// # Safety
+/// `k_s32` 32o lisibles, `nonce_ptr` 24o lisibles, `ct_ptr..ct_ptr+ct_len` lisibles.
+/// Retourne 0 si OK, <0 si échec.
+#[no_mangle]
+pub unsafe extern "C" fn hardlock_token_verify(
+    k_s32: *const u8,
+    nonce_ptr: *const u8,
+    ct_ptr: *const u8,
+    ct_len: usize,
+    now_unix_s: u64,
+) -> c_int {
+    if k_s32.is_null() || nonce_ptr.is_null() || ct_ptr.is_null() {
+        return -1;
+    }
+    let k_s = {
+        let mut k = [0u8; 32];
+        ptr::copy_nonoverlapping(k_s32, k.as_mut_ptr(), 32);
+        k
+    };
+    let mut nonce = [0u8; crate::crypto::aeadx::XNONCE_LEN];
+    ptr::copy_nonoverlapping(nonce_ptr, nonce.as_mut_ptr(), nonce.len());
+    let ct = std::slice::from_raw_parts(ct_ptr, ct_len);
+    let tok = crate::envelope::SenderToken {
+        nonce,
+        ct: ct.to_vec(),
+    };
+    match crate::envelope::token_verify(&k_s, &tok, now_unix_s) {
+        Some(_) => 0,
+        None => -2,
+    }
+}
+
+/// # Safety
+/// `frame_ptr..frame_ptr+frame_len` lisibles, `out_ptr` capacité `out_cap`.
+/// `profile` : 0=Stealth,1=Balanced,2=Throughput. Retourne taille écrite.
+#[no_mangle]
+pub unsafe extern "C" fn hardlock_apply_padding(
+    frame_ptr: *const u8,
+    frame_len: usize,
+    profile: i32,
+    out_ptr: *mut u8,
+    out_cap: usize,
+) -> c_int {
+    if frame_ptr.is_null() || out_ptr.is_null() {
+        return -1;
+    }
+    let f = std::slice::from_raw_parts(frame_ptr, frame_len).to_vec();
+    let p = match profile {
+        0 => crate::envelope::PadProfile::Stealth,
+        1 => crate::envelope::PadProfile::Balanced,
+        _ => crate::envelope::PadProfile::Throughput,
+    };
+    let out = crate::envelope::apply_padding(f, p);
+    if out.len() > out_cap {
+        return -2;
+    }
+    ptr::copy_nonoverlapping(out.as_ptr(), out_ptr, out.len());
+    c_int::try_from(out.len()).unwrap_or(-5)
+}
