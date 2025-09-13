@@ -12,21 +12,26 @@ jobs:
       - run: cargo install cargo-geiger --locked
       - run: cargo geiger --all --locked --output-format Json > geiger.json || true
       - name: gate-unsafe-outside-ffi
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
           python3 - <<'PY'
 import json,sys,os
+ws=os.environ.get('GITHUB_WORKSPACE','')
 data=json.load(open('geiger.json'))
 viol=False
-for krate in data.get('crates',[]):
-  for f in krate.get('files',[]):
-    p=f.get('path','')
-    # on ne regarde que les sources Rust
+for kr in data.get('crates',[]):
+  for f in kr.get('files',[]):
+    p=f.get('path','') or ''
+    # ne garder que les fichiers de CE repo
+    if ws and not p.startswith(ws + os.sep):
+      continue
+    # ignorer tout sauf .rs
     if not p.endswith('.rs'):
       continue
-    # on tolère l'unsafe seulement dans src/ffi.rs
-    if p.endswith('src/ffi.rs'):
+    # unsafe permis seulement dans src/ffi.rs
+    if p.endswith(os.sep+'src'+os.sep+'ffi.rs'):
       continue
-    # le champ 'unsafety_used' agrège l'unsafe dans ce fichier
     if f.get('unsafety_used',0)>0:
       print('UNSAFE outside ffi:',p)
       viol=True
