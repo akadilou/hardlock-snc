@@ -7,7 +7,6 @@ use hardlock_snc::ratchet;
 #[cfg(not(miri))]
 use proptest::prelude::*;
 
-
 #[cfg(not(miri))]
 proptest! {
   #[test]
@@ -24,7 +23,6 @@ proptest! {
     prop_assert_eq!(pt, msg);
   }
 }
-
 
 #[cfg(not(miri))]
 proptest! {
