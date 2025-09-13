@@ -52,3 +52,13 @@ Voir `README_PERF.md`
 - Binder v2 anti-downgrade
 - CI cargo-deny ok
 
+
+## Boucliers CI/CD
+
+### Couverture
+Mesure la part du code réellement exercée par les tests (artefact Cobertura attaché aux runs).
+Reproduction:
+```bash
+cargo install cargo-tarpaulin --locked
+cargo tarpaulin --all --workspace --out Xml --timeout 120
+
