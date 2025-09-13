@@ -10,8 +10,30 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo install cargo-geiger --locked
-      - run: cargo geiger --all --locked --output-format GitHubMarkdown > geiger.md
+      - run: cargo geiger --all --locked --output-format Json > geiger.json || true
+      - name: gate-unsafe-outside-ffi
+        run: |
+          python3 - <<'PY'
+import json,sys,os
+data=json.load(open('geiger.json'))
+viol=False
+for krate in data.get('crates',[]):
+  for f in krate.get('files',[]):
+    p=f.get('path','')
+    # on ne regarde que les sources Rust
+    if not p.endswith('.rs'):
+      continue
+    # on tolère l'unsafe seulement dans src/ffi.rs
+    if p.endswith('src/ffi.rs'):
+      continue
+    # le champ 'unsafety_used' agrège l'unsafe dans ce fichier
+    if f.get('unsafety_used',0)>0:
+      print('UNSAFE outside ffi:',p)
+      viol=True
+if viol:
+  sys.exit(1)
+PY
       - uses: actions/upload-artifact@v4
         with:
-          name: geiger-report
-          path: geiger.md
+          name: geiger-json
+          path: geiger.json
