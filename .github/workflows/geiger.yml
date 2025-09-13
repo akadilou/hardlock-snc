@@ -1,0 +1,17 @@
+name: geiger
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  geiger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-geiger --locked
+      - run: cargo geiger --all --locked --output-format GitHubMarkdown > geiger.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geiger-report
+          path: geiger.md

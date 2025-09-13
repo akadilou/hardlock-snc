@@ -1,0 +1,17 @@
+name: coverage
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  tarpaulin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-tarpaulin --locked
+      - run: cargo tarpaulin --all --workspace --out Xml --timeout 120
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: cobertura.xml

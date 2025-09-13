@@ -1,0 +1,13 @@
+name: miri
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@miri
+      - run: cargo miri setup
+      - run: MIRIFLAGS="-Zmiri-tag-raw-pointers" cargo miri test
