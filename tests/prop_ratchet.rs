@@ -1,8 +1,14 @@
+#[cfg(not(miri))]
 use hardlock_snc::crypto::hpke_hybrid::hpke_initiate;
+#[cfg(not(miri))]
 use hardlock_snc::identity::DeviceIdentity;
+#[cfg(not(miri))]
 use hardlock_snc::ratchet;
+#[cfg(not(miri))]
 use proptest::prelude::*;
 
+
+#[cfg(not(miri))]
 proptest! {
   #[test]
   fn roundtrip_random(msg in proptest::collection::vec(any::<u8>(), 0..4096)) {
@@ -19,6 +25,8 @@ proptest! {
   }
 }
 
+
+#[cfg(not(miri))]
 proptest! {
   #[test]
   fn out_of_order_same_chain(msgs in proptest::collection::vec(proptest::collection::vec(any::<u8>(), 0..64), 2..8)) {
