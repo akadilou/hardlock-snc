@@ -1,0 +1,41 @@
+name: geiger-ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  geiger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-geiger --locked
+      - run: cargo geiger --all --locked --output-format Json > geiger.json || true
+      - name: gate-unsafe-outside-ffi
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python3 - <<'PY'
+import json,sys,os
+ws=os.environ.get('GITHUB_WORKSPACE','')
+data=json.load(open('geiger.json'))
+viol=False
+for kr in data.get('crates',[]):
+  for f in kr.get('files',[]):
+    p=f.get('path','') or ''
+    if not p.endswith('.rs'): 
+      continue
+    if ws and not p.startswith(ws + os.sep):
+      continue
+    if p.endswith(os.sep+'src'+os.sep+'ffi.rs'):
+      continue
+    if f.get('unsafety_used',0)>0:
+      print('UNSAFE outside ffi:',p)
+      viol=True
+if viol:
+  sys.exit(1)
+PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geiger-json
+          path: geiger.json
