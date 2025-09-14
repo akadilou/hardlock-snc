@@ -1,4 +1,4 @@
-name: geiger
+name: geiger-gate
 on:
   push:
   pull_request:
@@ -15,7 +15,11 @@ jobs:
         run: |
           python3 - <<'PY'
 import json,sys
-data=json.load(open('geiger.json'))
+try:
+  data=json.load(open('geiger.json'))
+except Exception as e:
+  print("FAILED to parse geiger.json:", e)
+  sys.exit(1)
 viol=False
 for krate in data.get('crates',[]):
   for f in krate.get('files',[]):
