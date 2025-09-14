@@ -1,0 +1,18 @@
+name: geiger-report
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  geiger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-geiger --locked
+      - run: cargo geiger --all --locked --output-format Json > geiger.json || true
+      - run: test -f geiger.json || echo '{}' > geiger.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geiger-json
+          path: geiger.json
