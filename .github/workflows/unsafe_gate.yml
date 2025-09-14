@@ -1,0 +1,15 @@
+name: unsafe-gate
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          if grep -R -n -w 'unsafe' src | grep -v '^src/ffi.rs' ; then
+            exit 1
+          fi
