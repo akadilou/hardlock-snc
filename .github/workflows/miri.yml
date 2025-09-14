@@ -8,6 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@miri
-      - run: cargo miri setup
-      - run: MIRIFLAGS="-Zmiri-tag-raw-pointers" cargo miri test
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri,rust-src
+      - name: miri-setup
+        run: cargo +nightly miri setup
+      - name: miri-test
+        env:
+          # garde l'isolation; nos proptests sont déjà désactivés sous miri
+          MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check"
+        run: cargo +nightly miri test
