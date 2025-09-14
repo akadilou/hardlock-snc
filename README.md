@@ -62,3 +62,41 @@ Reproduction:
 cargo install cargo-tarpaulin --locked
 cargo tarpaulin --all --workspace --out Xml --timeout 120
 
+
+- **Unsafe Gate** : bloque si `unsafe` apparaît hors de `src/ffi.rs`.
+- **Geiger Report** : export JSON de l’empreinte `unsafe` (artefact non-bloquant).
+- **Miri** : exécution interprétée pour traquer UB/violations mémoire.
+- **Coverage (tarpaulin)** : couverture de tests (rapport Cobertura en artefact).
+
+```bash
+# Unsafe Gate local
+if grep -R -n -w 'unsafe' src | grep -v '^src/ffi.rs' ; then echo "UNSAFE leak"; exit 1; fi
+
+cargo install cargo-geiger --locked
+cargo geiger --all --locked --output-format Json > geiger.json || true
+
+rustup component add --toolchain nightly miri
+cargo +nightly miri setup
+cargo +nightly miri test
+
+cargo install cargo-tarpaulin --locked
+cargo tarpaulin --all --workspace --out Xml --timeout 120
+
+
+## Boucliers CI/CD
+
+### 1) Couverture de tests (Tarpaulin)
+- Workflow: `coverage.yml` (artefact Cobertura).
+- Local:
+```bash
+cargo install cargo-tarpaulin --locked
+cargo tarpaulin --all --workspace --out Xml --timeout 120
+
+
+## CI/CD
+
+[![ci](https://github.com/akadilou/hardlock-snc/actions/workflows/ci.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/ci.yml)
+[![miri](https://github.com/akadilou/hardlock-snc/actions/workflows/miri.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/miri.yml)
+[![coverage](https://github.com/akadilou/hardlock-snc/actions/workflows/coverage.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/coverage.yml)
+[![geiger-report](https://github.com/akadilou/hardlock-snc/actions/workflows/geiger_report.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/geiger_report.yml)
+[![unsafe-gate](https://github.com/akadilou/hardlock-snc/actions/workflows/unsafe_gate.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/unsafe_gate.yml)
