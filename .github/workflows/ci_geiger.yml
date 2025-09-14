@@ -1,4 +1,4 @@
-name: geiger-ci
+name: geiger
 on:
   push:
   pull_request:
@@ -12,22 +12,17 @@ jobs:
       - run: cargo install cargo-geiger --locked
       - run: cargo geiger --all --locked --output-format Json > geiger.json || true
       - name: gate-unsafe-outside-ffi
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
           python3 - <<'PY'
-import json,sys,os
-ws=os.environ.get('GITHUB_WORKSPACE','')
+import json,sys
 data=json.load(open('geiger.json'))
 viol=False
-for kr in data.get('crates',[]):
-  for f in kr.get('files',[]):
-    p=f.get('path','') or ''
-    if not p.endswith('.rs'): 
+for krate in data.get('crates',[]):
+  for f in krate.get('files',[]):
+    p=f.get('path','')
+    if not p.endswith('.rs'):
       continue
-    if ws and not p.startswith(ws + os.sep):
-      continue
-    if p.endswith(os.sep+'src'+os.sep+'ffi.rs'):
+    if p.endswith('src/ffi.rs'):
       continue
     if f.get('unsafety_used',0)>0:
       print('UNSAFE outside ffi:',p)
