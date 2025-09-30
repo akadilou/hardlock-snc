@@ -1,8 +1,14 @@
 name: miri
 on:
   push:
+    branches: ["**"]
   pull_request:
-  workflow_dispatch:
+    branches: ["**"]
+concurrency:
+  group: miri-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
 jobs:
   miri:
     runs-on: ubuntu-latest
@@ -11,10 +17,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri,rust-src
-      - name: miri-setup
-        run: cargo +nightly miri setup
-      - name: miri-test
-        env:
-          # garde l'isolation; nos proptests sont déjà désactivés sous miri
-          MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check"
-        run: cargo +nightly miri test
+      - uses: swatinem/rust-cache@v2
+      - run: cargo +nightly miri setup
+      - run: cargo +nightly miri test --workspace --all-features

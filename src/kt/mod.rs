@@ -88,7 +88,7 @@ pub fn inclusion_proof(hashes: &[[u8; 32]], mut idx: usize) -> Vec<[u8; 32]> {
     let mut proof = Vec::new();
     let mut level = hashes.to_vec();
     while level.len() > 1 {
-        let sib = if idx % 2 == 0 {
+        let sib = if idx.is_multiple_of(2) {
             if idx + 1 < level.len() {
                 level[idx + 1]
             } else {
@@ -126,7 +126,7 @@ pub fn verify_inclusion(
     let mut acc = *leaf_hash;
     let mut i = idx;
     for s in proof {
-        acc = if i % 2 == 0 {
+        acc = if i.is_multiple_of(2) {
             hash_node(&acc, s)
         } else {
             hash_node(s, &acc)
