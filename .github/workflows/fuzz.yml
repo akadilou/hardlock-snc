@@ -1,13 +1,44 @@
 name: fuzz
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * *"
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
 jobs:
-  wire-unpack:
+  fuzz-wire-unpack:
+    name: cargo-fuzz wire_unpack
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo install cargo-fuzz --locked
-      - run: cargo fuzz run wire_unpack -- -max_total_time=60
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - run: sudo apt-get update && sudo apt-get install -y llvm
+      - name: build
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+          RUSTFLAGS:
+        run: cargo fuzz build
+      - name: run
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+          ASAN_OPTIONS: detect_odr_violation=0:alloc_dealloc_mismatch=0:exitcode=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          RUSTFLAGS:
+        run: cargo fuzz run wire_unpack --sanitizer=address -- -max_total_time=60
+      - name: upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-wire_unpack-${{ github.run_id }}
+          path: |
+            fuzz/artifacts/wire_unpack/**
+            fuzz/crashes/**
+            fuzz/corpus/wire_unpack/**
