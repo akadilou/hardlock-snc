@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always
+  CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
 jobs:
   fuzz-wire-unpack:
     name: cargo-fuzz wire_unpack
