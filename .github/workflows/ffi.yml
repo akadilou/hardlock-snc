@@ -42,7 +42,8 @@ jobs:
         with:
           tool: cbindgen
       - run: cbindgen --output hardlock_snc.h
-      - run: xcodebuild -create-xcframework -library build/ios/device/$(basename build/ios/device/lib*.a) -headers hardlock_snc.h -library build/ios/sim/$(basename build/ios/sim/lib*.a) -headers hardlock_snc.h -output HardlockSNC.xcframework
+      - run: sh -lc 'test $(ls build/ios/device/lib*.a | wc -l) -eq 1 && test $(ls build/ios/sim/lib*.a | wc -l) -eq 1'
+      - run: sh -lc 'DEV=$(ls build/ios/device/lib*.a); SIM=$(ls build/ios/sim/lib*.a); xcodebuild -create-xcframework -library "$DEV" -headers hardlock_snc.h -library "$SIM" -headers hardlock_snc.h -output HardlockSNC.xcframework'
       - uses: actions/upload-artifact@v4
         with:
           name: ffi-ios-${{ github.run_id }}
