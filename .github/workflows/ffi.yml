@@ -4,15 +4,20 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
+concurrency:
+  group: ffi-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
 jobs:
   c_linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y clang pkg-config
       - run: cargo build --release --locked
-      - name: cbindgen
-        uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
       - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
@@ -21,4 +26,49 @@ jobs:
           name: ffi-linux-${{ github.run_id }}
           path: |
             target/release/libhardlock_snc.so
+            hardlock_snc.h
+  ios_xcframework:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - run: cargo build --release --target aarch64-apple-ios
+      - run: cargo build --release --target aarch64-apple-ios-sim
+      - run: mkdir -p build/ios/device build/ios/sim
+      - run: cp target/aarch64-apple-ios/release/libhardlock_snc.a build/ios/device/libhardlock_snc.a
+      - run: cp target/aarch64-apple-ios-sim/release/libhardlock_snc.a build/ios/sim/libhardlock_snc.a
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
+      - run: xcodebuild -create-xcframework -library build/ios/device/libhardlock_snc.a -headers hardlock_snc.h -library build/ios/sim/libhardlock_snc.a -headers hardlock_snc.h -output HardlockSNC.xcframework
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffi-ios-${{ github.run_id }}
+          path: |
+            HardlockSNC.xcframework
+            hardlock_snc.h
+  android_jni:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+      - run: rustup target add aarch64-linux-android
+      - run: cargo ndk -t arm64-v8a -o target/android build --release
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffi-android-${{ github.run_id }}
+          path: |
+            target/android/arm64-v8a/release/libhardlock_snc.so
             hardlock_snc.h
