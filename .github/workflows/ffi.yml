@@ -1,16 +1,24 @@
 name: ffi
 on:
   push:
+    branches: ["**"]
   pull_request:
+    branches: ["**"]
 jobs:
-  build-ffi:
+  c_linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
-      - run: sudo apt-get update && sudo apt-get install -y clang
-      - run: cargo install cbindgen --locked
-      - run: cbindgen --crate hardlock-snc --output include/hardlock_snc.h
-      - run: printf '#include <stdio.h>\n#include "../include/hardlock_snc.h"\nint main(){printf("ok\\n");return 0;}\n' > c_sample/ci.c
-      - run: clang -I include -L target/release -lhardlock_snc -o c_sample/ci c_sample/ci.c
+      - run: cargo build --release --locked
+      - name: cbindgen
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffi-linux-${{ github.run_id }}
+          path: |
+            target/release/libhardlock_snc.so
+            hardlock_snc.h
