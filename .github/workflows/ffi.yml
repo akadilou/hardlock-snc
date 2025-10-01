@@ -36,14 +36,17 @@ jobs:
       - run: cargo build --release --target aarch64-apple-ios
       - run: cargo build --release --target aarch64-apple-ios-sim
       - run: mkdir -p build/ios/device build/ios/sim
-      - run: cp target/aarch64-apple-ios/release/lib*.a build/ios/device/
-      - run: cp target/aarch64-apple-ios-sim/release/lib*.a build/ios/sim/
+      - run: cp "$(ls target/aarch64-apple-ios/release/lib*.a | head -n1)" build/ios/device/
+      - run: cp "$(ls target/aarch64-apple-ios-sim/release/lib*.a | head -n1)" build/ios/sim/
       - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
       - run: cbindgen --output hardlock_snc.h
-      - run: sh -lc 'test $(ls build/ios/device/lib*.a | wc -l) -eq 1 && test $(ls build/ios/sim/lib*.a | wc -l) -eq 1'
-      - run: sh -lc 'DEV=$(ls build/ios/device/lib*.a); SIM=$(ls build/ios/sim/lib*.a); xcodebuild -create-xcframework -library "$DEV" -headers hardlock_snc.h -library "$SIM" -headers hardlock_snc.h -output HardlockSNC.xcframework'
+      - run: |
+          set -e
+          DEV_LIB="$(ls build/ios/device/lib*.a | head -n1)"
+          SIM_LIB="$(ls build/ios/sim/lib*.a | head -n1)"
+          xcodebuild -create-xcframework -library "$DEV_LIB" -headers hardlock_snc.h -library "$SIM_LIB" -headers hardlock_snc.h -output HardlockSNC.xcframework
       - uses: actions/upload-artifact@v4
         with:
           name: ffi-ios-${{ github.run_id }}
