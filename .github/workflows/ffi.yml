@@ -20,12 +20,12 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
-      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
+      - run: cbindgen --output hardlock_snc.h
       - uses: actions/upload-artifact@v4
         with:
           name: ffi-linux-${{ github.run_id }}
           path: |
-            target/release/libhardlock_snc.so
+            target/release/lib*.so
             hardlock_snc.h
   ios_xcframework:
     runs-on: macos-14
@@ -36,13 +36,13 @@ jobs:
       - run: cargo build --release --target aarch64-apple-ios
       - run: cargo build --release --target aarch64-apple-ios-sim
       - run: mkdir -p build/ios/device build/ios/sim
-      - run: cp target/aarch64-apple-ios/release/libhardlock_snc.a build/ios/device/libhardlock_snc.a
-      - run: cp target/aarch64-apple-ios-sim/release/libhardlock_snc.a build/ios/sim/libhardlock_snc.a
+      - run: cp target/aarch64-apple-ios/release/lib*.a build/ios/device/
+      - run: cp target/aarch64-apple-ios-sim/release/lib*.a build/ios/sim/
       - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
-      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
-      - run: xcodebuild -create-xcframework -library build/ios/device/libhardlock_snc.a -headers hardlock_snc.h -library build/ios/sim/libhardlock_snc.a -headers hardlock_snc.h -output HardlockSNC.xcframework
+      - run: cbindgen --output hardlock_snc.h
+      - run: xcodebuild -create-xcframework -library build/ios/device/$(basename build/ios/device/lib*.a) -headers hardlock_snc.h -library build/ios/sim/$(basename build/ios/sim/lib*.a) -headers hardlock_snc.h -output HardlockSNC.xcframework
       - uses: actions/upload-artifact@v4
         with:
           name: ffi-ios-${{ github.run_id }}
@@ -65,10 +65,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
-      - run: cbindgen --crate hardlock-snc --output hardlock_snc.h
+      - run: cbindgen --output hardlock_snc.h
       - uses: actions/upload-artifact@v4
         with:
           name: ffi-android-${{ github.run_id }}
           path: |
-            target/android/arm64-v8a/release/libhardlock_snc.so
+            target/android/arm64-v8a/release/lib*.so
             hardlock_snc.h
