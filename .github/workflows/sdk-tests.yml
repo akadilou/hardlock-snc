@@ -1,9 +1,11 @@
 name: sdk-tests
 on:
+  workflow_dispatch:
   push:
     branches: ["**"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 concurrency:
   group: sdk-tests-${{ github.ref }}
   cancel-in-progress: true
