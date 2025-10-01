@@ -1,0 +1,17 @@
+*** Begin Patch
+*** Update File: src/kt/mod.rs
+@@
+-    let sib = if idx % 2 == 0 {
++    let sib = if idx.is_multiple_of(2) {
+         idx + 1
+     } else {
+         idx - 1
+     };
+@@
+-    acc = if i % 2 == 0 {
++    acc = if i.is_multiple_of(2) {
+         combine_even(acc, v)
+     } else {
+         combine_odd(acc, v)
+     };
+*** End Patch

@@ -1,0 +1,13 @@
+*** Begin Patch
+*** Update File: src/bin/gen_kats.rs
+@@
+-    x.iter().map(|b| format!("{:02x}", b)).collect()
++    {
++        use std::fmt::Write as _;
++        let mut s = String::with_capacity(x.len() * 2);
++        for &b in x {
++            let _ = write!(&mut s, "{b:02x}");
++        }
++        s
++    }
+*** End Patch
