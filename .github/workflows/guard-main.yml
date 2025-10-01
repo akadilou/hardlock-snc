@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     env:
       GH_REPO: ${{ github.repository }}
       GH_SHA: ${{ github.sha }}
@@ -15,7 +16,7 @@ jobs:
       - name: allow PR merges, block direct pushes
         run: |
           set -euo pipefail
-          prs=$(curl -sSf -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.groot-preview+json" "https://api.github.com/repos/${GH_REPO}/commits/${GH_SHA}/pulls")
+          prs=$(curl -sSf -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GH_REPO}/commits/${GH_SHA}/pulls")
           if echo "$prs" | grep -q '"number"'; then
             echo "PR merge detected: allowed"
             exit 0
