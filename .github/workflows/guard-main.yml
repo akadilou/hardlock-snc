@@ -1,0 +1,11 @@
+name: guard-main
+on:
+  push:
+    branches: ["main"]
+jobs:
+  block-direct-push:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Direct push to main is forbidden. Use PRs."
+          exit 1
