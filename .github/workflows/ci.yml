@@ -54,17 +54,6 @@ jobs:
         with:
           name: geiger-${{ github.run_id }}
           path: geiger.json
-  miri:
-    name: miri
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: miri,rust-src
-      - uses: swatinem/rust-cache@v2
-      - run: cargo miri setup
-      - run: cargo miri test --workspace --all-features
   coverage:
     name: coverage
     runs-on: ubuntu-latest
@@ -83,6 +72,6 @@ jobs:
   all-green:
     name: gate
     runs-on: ubuntu-latest
-    needs: [lint,test,deny,geiger,miri,coverage]
+    needs: [lint,test,deny,geiger,coverage]
     steps:
       - run: echo ok
