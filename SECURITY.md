@@ -1,26 +1,29 @@
-# Security
+# Security Policy
 
 ## Scope
-- Library cryptographique sans `unsafe` (hors module FFI).
-- AEAD: XChaCha20-Poly1305
-- KDF: HKDF-SHA256
-- HPKE: X25519/HKDF-SHA256/ChaCha20-Poly1305, binder v2 anti-downgrade.
-- Double Ratchet: X25519 + HKDF-SHA256, out-of-order, anti-replay persistant.
+This policy covers the Hardlock SNC core (Rust crates, FFI, SDK bindings) and the CI/CD guardrails that protect supply chain, UB, and unsafe usage.
 
-## Dépendances
-- `cargo deny` en CI pour vulnérabilités, licences, sources.
+## Threat-model anchors
+- Constant-time, misuse-resistant crypto with pinned versions.
+- No unreviewed `unsafe` in application code; FFI boundary isolated.
+- Reproducible builds and deterministic CI gates on every change to `main`.
 
-## Tests
-- Unitaires
-- Tests de propriété
-- Simulation e2e réordonnée
-- Fuzz wire
+## CI/CD Guardrails (enforced)
+1. Lint pedantic: `clippy::pedantic` with `-D warnings`.
+2. Tests: `cargo test --locked`.
+3. Supply chain: `cargo deny check`.
+4. Unsafe tracking: `cargo geiger` JSON artifact; no app-level `unsafe`.
+5. UB detection: Miri on nightly (`miri.yml`) across the workspace.
+6. Coverage: Cobertura XML artifact (tarpaulin on Ubuntu).
+7. Fuzzing: `cargo-fuzz` with ASan on glibc target; artifacts uploaded.
+8. Main protection: direct pushes to `main` blocked; PR merges only.
 
-## Signalement
-- Ouvrir une issue privée sur GitHub si nécessaire.
-- Aucun secret de prod ne doit être communiqué dans les tickets.
+## Reporting a vulnerability
+Preferred: email security@hardlock.local with PoC and impact. Triage within 72h, coordinated disclosure by default.
 
-## Limites
-- Pas d’effacement mémoire garanti au-delà de ce que fournissent les crates.
-- Pas encore d’audit externe complet.
+## Key handling and transparency
+- Key Transparency: signed STH (Ed25519), inclusion proofs verified in CI tests.
+- FFI ABI stability: `cdylib` + generated C header tracked as artifact.
 
+## Supported releases
+`main` is the only supported branch. CI badges in README must be green for a release to be considered valid.
