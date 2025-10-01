@@ -45,4 +45,3 @@ criterion = "0.5"
 crate-type = ["cdylib","staticlib","rlib"]
 name = "hardlock_snc"
 path = "src/lib.rs"
-crate-type = ["rlib","cdylib"]
