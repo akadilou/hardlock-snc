@@ -22,7 +22,7 @@ struct RatchetKat {
 }
 
 fn hex(x: &[u8]) -> String {
-    x.iter().map(|b| format!("{:02x}", b)).collect()
+    { use std::fmt::Write as _; let mut s = String::with_capacity(x.len()*2); for &b in x { let _ = write!(&mut s, "{b:02x}"); } s }
 }
 
 fn main() -> anyhow::Result<()> {
