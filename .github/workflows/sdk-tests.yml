@@ -31,8 +31,8 @@ jobs:
             uint8_t out_pt[4096]; size_t pt_len=sizeof(out_pt);
             void* s = hl_snc_session_new_initiator();
             const uint8_t msg[]="hello";
-            hl_snc_encrypt(s,msg,sizeof(msg)-1,out_ct,&ct_len);
-            hl_snc_decrypt(s,out_ct,ct_len,out_pt,&pt_len);
+            if(hl_snc_encrypt(s,msg,sizeof(msg)-1,out_ct,&ct_len)!=0) return 2;
+            if(hl_snc_decrypt(s,out_ct,ct_len,out_pt,&pt_len)!=0) return 3;
             fwrite(out_pt,1,pt_len,stdout);
             hl_snc_session_free(s);
             return 0;
@@ -64,8 +64,7 @@ jobs:
           build-tools: 34.0.0
           profile: default
       - run: sudo apt-get update && sudo apt-get install -y gradle unzip
-      - name: scaffold android sample
-        run: |
+      - run: |
           set -e
           mkdir -p android-sample/app/src/main/java/com/hardlock/demo
           mkdir -p android-sample/app/src/main/jniLibs/arm64-v8a
@@ -111,16 +110,13 @@ jobs:
               }
           }
           K
-      - name: create gradle wrapper
-        working-directory: android-sample
+      - working-directory: android-sample
         run: |
           gradle wrapper --gradle-version 8.7
           ./gradlew --version
-      - name: assemble debug
-        working-directory: android-sample
+      - working-directory: android-sample
         run: ./gradlew :app:assembleDebug
-      - name: verify apk contains native lib
-        working-directory: android-sample
+      - working-directory: android-sample
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | tee listing.txt
