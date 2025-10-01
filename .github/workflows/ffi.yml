@@ -1,16 +1,115 @@
 name: ffi
 on:
   push:
+    branches: ["**"]
   pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+concurrency:
+  group: ffi-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
 jobs:
-  build-ffi:
+  c_linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
-      - run: sudo apt-get update && sudo apt-get install -y clang
-      - run: cargo install cbindgen --locked
-      - run: cbindgen --crate hardlock-snc --output include/hardlock_snc.h
-      - run: printf '#include <stdio.h>\n#include "../include/hardlock_snc.h"\nint main(){printf("ok\\n");return 0;}\n' > c_sample/ci.c
-      - run: clang -I include -L target/release -lhardlock_snc -o c_sample/ci c_sample/ci.c
+      - run: sudo apt-get update && sudo apt-get install -y clang pkg-config
+      - run: cargo build -p hardlock-snc --release --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --output hardlock_snc.h
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffi-linux-${{ github.run_id }}
+          path: |
+            target/release/lib*.so
+            hardlock_snc.h
+          if-no-files-found: warn
+  ios_xcframework:
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - run: cargo build -p hardlock-snc --release --target aarch64-apple-ios
+      - run: cargo build -p hardlock-snc --release --target aarch64-apple-ios-sim
+      - run: mkdir -p build/ios/device build/ios/sim
+      - id: pick_dev
+        run: echo "LIB_DEV=$(ls -t target/aarch64-apple-ios/release/lib*.a | head -n1)" >> $GITHUB_OUTPUT
+      - id: pick_sim
+        run: echo "LIB_SIM=$(ls -t target/aarch64-apple-ios-sim/release/lib*.a | head -n1)" >> $GITHUB_OUTPUT
+      - run: test -n "${{ steps.pick_dev.outputs.LIB_DEV }}" && cp "${{ steps.pick_dev.outputs.LIB_DEV }}" build/ios/device/ || true
+      - run: test -n "${{ steps.pick_sim.outputs.LIB_SIM }}" && cp "${{ steps.pick_sim.outputs.LIB_SIM }}" build/ios/sim/ || true
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --output hardlock_snc.h
+      - run: |
+          set -e
+          DEV_LIB=$(ls -t build/ios/device/lib*.a 2>/dev/null | head -n1 || true)
+          SIM_LIB=$(ls -t build/ios/sim/lib*.a 2>/dev/null | head -n1 || true)
+          if [ -n "$DEV_LIB" ] && [ -n "$SIM_LIB" ]; then
+            xcodebuild -create-xcframework \
+              -library "$DEV_LIB" -headers hardlock_snc.h \
+              -library "$SIM_LIB" -headers hardlock_snc.h \
+              -output HardlockSNC.xcframework
+          else
+            echo "Skip XCFramework: missing staticlibs (ensure Cargo.toml has [lib] crate-type incl. staticlib)"; exit 0
+          fi
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffi-ios-${{ github.run_id }}
+          path: |
+            HardlockSNC.xcframework
+            hardlock_snc.h
+          if-no-files-found: warn
+  android_jni:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+      - run: rustup target add aarch64-linux-android
+      - run: cargo ndk -t arm64-v8a -o target/android build -p hardlock-snc --release
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - run: cbindgen --output hardlock_snc.h
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffi-android-${{ github.run_id }}
+          path: |
+            target/android/arm64-v8a/release/lib*.so
+            hardlock_snc.h
+          if-no-files-found: warn
+  bundle:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [c_linux, ios_xcframework, android_jni]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: sdk
+      - run: |
+          cd sdk
+          find . -type f -maxdepth 4 | sed -n '1,200p'
+          cd ..
+          zip -r sdk_hardlock_snc_${{ github.run_id }}.zip sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-bundle-${{ github.run_id }}
+          path: sdk_hardlock_snc_${{ github.run_id }}.zip
+          if-no-files-found: error

@@ -100,3 +100,16 @@ cargo tarpaulin --all --workspace --out Xml --timeout 120
 [![coverage](https://github.com/akadilou/hardlock-snc/actions/workflows/coverage.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/coverage.yml)
 [![geiger-report](https://github.com/akadilou/hardlock-snc/actions/workflows/geiger_report.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/geiger_report.yml)
 [![unsafe-gate](https://github.com/akadilou/hardlock-snc/actions/workflows/unsafe_gate.yml/badge.svg)](https://github.com/akadilou/hardlock-snc/actions/workflows/unsafe_gate.yml)
+
+## CI/CD Guards (audit overview)
+
+- Lint pedantic: `clippy::pedantic`, `-D warnings`
+- Tests (locked): `cargo test --workspace --all-features --locked`
+- Supply chain: `cargo deny check`
+- Unsafe tracking: `cargo geiger` (artifact JSON)
+- Miri: UB checks on nightly (`miri.yml`)
+- Coverage: tarpaulin Cobertura artifact
+- Fuzz: ASan on `x86_64-unknown-linux-gnu`, artifacts (non-blocking)
+- Main guard: no direct push to `main` (PR merges only)
+
+See `SECURITY.md` and `CONTRIBUTING.md` for details.
