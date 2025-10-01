@@ -10,7 +10,6 @@ concurrency:
   cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always
-
 jobs:
   c_linux:
     runs-on: ubuntu-latest
@@ -31,7 +30,6 @@ jobs:
             target/release/lib*.so
             hardlock_snc.h
           if-no-files-found: warn
-
   ios_xcframework:
     runs-on: macos-14
     continue-on-error: true
@@ -62,7 +60,7 @@ jobs:
               -library "$SIM_LIB" -headers hardlock_snc.h \
               -output HardlockSNC.xcframework
           else
-            echo "Skip XCFramework: missing staticlibs (ensure Cargo.toml has [lib] crate-type including staticlib)"; exit 0
+            echo "Skip XCFramework: missing staticlibs (ensure Cargo.toml has [lib] crate-type incl. staticlib)"; exit 0
           fi
       - if: always()
         uses: actions/upload-artifact@v4
@@ -72,7 +70,6 @@ jobs:
             HardlockSNC.xcframework
             hardlock_snc.h
           if-no-files-found: warn
-
   android_jni:
     runs-on: ubuntu-latest
     steps:
@@ -98,7 +95,6 @@ jobs:
             target/android/arm64-v8a/release/lib*.so
             hardlock_snc.h
           if-no-files-found: warn
-
   bundle:
     runs-on: ubuntu-latest
     if: always()
