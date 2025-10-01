@@ -41,12 +41,10 @@ jobs:
       - run: cc app.c -o app -I . -L target/release -Wl,-rpath,'$ORIGIN/../target/release' -lhardlock_snc
       - run: ./app | tee out.txt
       - run: test "$(cat out.txt)" = "hello"
-
   android_kotlin_gradle:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with:
@@ -56,20 +54,16 @@ jobs:
           ndk-version: r26d
       - run: rustup target add aarch64-linux-android
       - run: cargo ndk -t arm64-v8a -o target/android build -p hardlock-snc --release
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
       - uses: android-actions/setup-android@v3
         with:
           api-level: 34
           build-tools: 34.0.0
           profile: default
-
       - run: sudo apt-get update && sudo apt-get install -y gradle unzip
-
       - name: scaffold android sample
         run: |
           set -e
@@ -145,21 +139,17 @@ jobs:
               }
           }
           K
-
       - name: create gradle wrapper
         working-directory: android-sample
         run: |
           gradle wrapper --gradle-version 8.7
           ./gradlew --version
-
       - name: assemble debug
         working-directory: android-sample
         run: ./gradlew :app:assembleDebug
-
       - name: verify apk contains native lib
         working-directory: android-sample
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | tee listing.txt
           grep -q "lib/arm64-v8a/libhardlock_snc.so" listing.txt
-
