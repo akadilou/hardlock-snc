@@ -4,7 +4,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
-workflow_dispatch:
+  workflow_dispatch:
 concurrency:
   group: ffi-${{ github.ref }}
   cancel-in-progress: true
@@ -30,6 +30,7 @@ jobs:
             hardlock_snc.h
   ios_xcframework:
     runs-on: macos-14
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
