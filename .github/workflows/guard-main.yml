@@ -1,0 +1,25 @@
+name: guard-main
+on:
+  push:
+    branches: ["main"]
+jobs:
+  block-direct-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_SHA: ${{ github.sha }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: allow PR merges, block direct pushes
+        run: |
+          set -euo pipefail
+          prs=$(curl -sSf -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.groot-preview+json" "https://api.github.com/repos/${GH_REPO}/commits/${GH_SHA}/pulls")
+          if echo "$prs" | grep -q '"number"'; then
+            echo "PR merge detected: allowed"
+            exit 0
+          else
+            echo "Direct push to main is forbidden. Use a Pull Request."
+            exit 1
+          fi
