@@ -37,6 +37,7 @@ jobs:
         with:
           ndk-version: r26d
       - run: |
+          set -e
           rustup target add aarch64-linux-android
           echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
           echo "ANDROID_NDK=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
