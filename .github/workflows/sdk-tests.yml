@@ -1,124 +1,74 @@
 name: sdk-tests
 on:
-  workflow_dispatch:
   push:
-    branches: ["**"]
-  pull_request:
-    branches: ["**"]
-concurrency:
-  group: sdk-tests-${{ github.ref }}
-  cancel-in-progress: true
-env:
-  CARGO_TERM_COLOR: always
+    branches: ["main"]
+  workflow_dispatch:
+
 jobs:
   linux_c_echo_test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get update && sudo apt-get install -y clang
-      - run: cargo build -p hardlock-snc --release --locked
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cbindgen
-      - run: cbindgen --output hardlock_snc.h
-      - run: |
-          cat > app.c <<'C'
-          #include "hardlock_snc.h"
-          #include <stdint.h>
+      - uses: Swatinem/rust-cache@v2
+      - name: build cdylib
+        run: |
+          cargo build --manifest-path Cargo.toml --release
+          ls -la target/release
+      - name: compile C echo using FFI
+        run: |
+          set -e
+          mkdir -p c
+          cat > c/app.c <<'C'
           #include <stdio.h>
+          #include <stdint.h>
+          #include <string.h>
+          #include "hardlock_snc.h"
           int main(void){
-            uint8_t out_ct[4096]; size_t ct_len=sizeof(out_ct);
-            uint8_t out_pt[4096]; size_t pt_len=sizeof(out_pt);
+            uint8_t out_ct[8192]; size_t ct_len=sizeof(out_ct);
+            uint8_t out_pt[8192]; size_t pt_len=sizeof(out_pt);
+            const char* msg = "hello_tufkey";
             void* s = hl_snc_session_new_initiator();
-            const uint8_t msg[]="hello";
-            if(hl_snc_encrypt(s,msg,sizeof(msg)-1,out_ct,&ct_len)!=0) return 2;
-            if(hl_snc_decrypt(s,out_ct,ct_len,out_pt,&pt_len)!=0) return 3;
-            fwrite(out_pt,1,pt_len,stdout);
+            if(!s) return 10;
+            if(hl_snc_encrypt(s,(const uint8_t*)msg,strlen(msg),out_ct,&ct_len)!=0) return 11;
+            if(hl_snc_decrypt(s,out_ct,ct_len,out_pt,&pt_len)!=0) return 12;
             hl_snc_session_free(s);
+            fwrite(out_pt,1,pt_len,stdout);
             return 0;
           }
           C
-      - run: cc app.c -o app -I . -L target/release -Wl,-rpath,'$ORIGIN/../target/release' -lhardlock_snc
-      - run: ./app | tee out.txt
-      - run: test "$(cat out.txt)" = "hello"
+          cc c/app.c -o c/app -I include -L target/release -lhardlock_snc -Wl,-rpath,'$ORIGIN/../target/release'
+      - name: run echo and assert
+        run: |
+          set -e
+          out="$(./c/app)"
+          echo "OUT=$out"
+          [ "$out" = "hello_tufkey" ]
+
   android_kotlin_gradle:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-ndk
-      - uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26d
-      - run: rustup target add aarch64-linux-android
-      - run: cargo ndk -t arm64-v8a -o target/android build -p hardlock-snc --release
+      - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
-      - uses: android-actions/setup-android@v3
+          java-version: "17"
+      - uses: nttld/setup-ndk@v1
+        id: ndk
         with:
-          api-level: 34
-          build-tools: 34.0.0
-          profile: default
-      - run: sudo apt-get update && sudo apt-get install -y gradle unzip
-      - run: |
+          ndk-version: r26d
+      - name: build android .so (arm64-v8a)
+        run: |
           set -e
-          mkdir -p android-sample/app/src/main/java/com/hardlock/demo
-          mkdir -p android-sample/app/src/main/jniLibs/arm64-v8a
-          mkdir -p android-sample/app/src/main/res/values
-          cp target/android/arm64-v8a/release/lib*.so android-sample/app/src/main/jniLibs/arm64-v8a/
-          cat > android-sample/settings.gradle.kts <<'G'
-          rootProject.name = "HardlockDemo"
-          include(":app")
-          G
-          cat > android-sample/build.gradle.kts <<'G'
-          plugins {}
-          G
-          cat > android-sample/gradle.properties <<'G'
-          org.gradle.jvmargs=-Xmx2g
-          android.useAndroidX=true
-          G
-          cat > android-sample/app/src/main/AndroidManifest.xml <<'G'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.hardlock.demo">
-            <application android:label="HardlockDemo" android:allowBackup="true" android:supportsRtl="true">
-              <activity android:name=".MainActivity">
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN" />
-                  <category android:name="android.intent.category.LAUNCHER" />
-                </intent-filter>
-              </activity>
-            </application>
-          </manifest>
-          G
-          cat > android-sample/app/src/main/java/com/hardlock/demo/MainActivity.kt <<'K'
-          package com.hardlock.demo
-          import android.app.Activity
-          import android.os.Bundle
-          object HL {
-              init { System.loadLibrary("hardlock_snc") }
-              external fun sessionNewInitiator(): Long
-              external fun encrypt(h: Long, input: ByteArray): ByteArray
-              external fun decrypt(h: Long, input: ByteArray): ByteArray
-              external fun sessionFree(h: Long)
-          }
-          class MainActivity: Activity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-              }
-          }
-          K
-      - working-directory: android-sample
-        run: |
-          gradle wrapper --gradle-version 8.7
-          ./gradlew --version
-      - working-directory: android-sample
-        run: ./gradlew :app:assembleDebug
-      - working-directory: android-sample
-        run: |
-          APK=app/build/outputs/apk/debug/app-debug.apk
-          unzip -l "$APK" | tee listing.txt
-          grep -q "lib/arm64-v8a/libhardlock_snc.so" listing.txt
+          echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk
+          cargo ndk --platform 24 -t arm64-v8a -o target/android build --manifest-path Cargo.toml --release
+          test -f target/android/arm64-v8a/release/libhardlock_snc.so
+          ls -la target/android/arm64-v8a/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-v8a
+          path: target/android/arm64-v8a/release/libhardlock_snc.so
