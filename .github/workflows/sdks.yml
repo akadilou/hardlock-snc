@@ -44,7 +44,7 @@ jobs:
       - name: Add rust target
         run: rustup target add aarch64-linux-android
       - name: Build .so arm64-v8a
-        run: cargo ndk -t arm64-v8a -o target/android build --manifest-path hardlock_snc/Cargo.toml --release
+        run: cargo ndk --platform 24 -t arm64-v8a -o target/android build --manifest-path hardlock_snc/Cargo.toml --release
       - name: Package android artifacts
         run: |
           set -e
