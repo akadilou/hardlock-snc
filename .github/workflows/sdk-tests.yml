@@ -5,23 +5,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  macos_c_echo_test:
+  macos_c_ffitest:
+    name: macOS • C FFI round-trip
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
       - uses: taiki-e/install-action@v2
         with:
           tool: cbindgen
-      - name: Build cdylib
+      - name: Build hardlock_snc (cdylib)
         run: |
-          cargo build -p hardlock-snc --release --locked
+          cargo build --manifest-path hardlock_snc/Cargo.toml --release --locked
+          ls -lh hardlock_snc/target/release/
           test -f hardlock_snc/target/release/libhardlock_snc.dylib
-      - name: Generate C header
+      - name: Generate C header with cbindgen
         run: |
-          cbindgen --crate hardlock_snc --output hardlock_snc.h
+          cbindgen ./hardlock_snc --lang c --output hardlock_snc.h
           test -f hardlock_snc.h
-      - name: C roundtrip (clang)
+      - name: Test round-trip en C
         run: |
           cat > app.c <<'C'
           #include "hardlock_snc.h"
@@ -29,56 +33,53 @@ jobs:
           #include <stdio.h>
           #include <string.h>
           int main(void){
-            uint8_t ct[4096]; size_t ct_len=sizeof(ct);
-            uint8_t pt[4096]; size_t pt_len=sizeof(pt);
-            const char *msg="hello";
+            uint8_t ct[4096]; size_t ct_len = sizeof(ct);
+            uint8_t pt[4096]; size_t pt_len = sizeof(pt);
+            const char* msg = "hello";
             void* s = hl_snc_session_new_initiator();
-            if(!s){fprintf(stderr,"no session\n");return 10;}
-            if(hl_snc_encrypt(s,(const uint8_t*)msg,strlen(msg),ct,&ct_len)!=0){return 11;}
-            if(hl_snc_decrypt(s,ct,ct_len,pt,&pt_len)!=0){return 12;}
-            fwrite(pt,1,pt_len,stdout);
+            if (!s) { fprintf(stderr, "no session\n"); return 10; }
+            if (hl_snc_encrypt(s, (const uint8_t*)msg, strlen(msg), ct, &ct_len) != 0) return 11;
+            if (hl_snc_decrypt(s, ct, ct_len, pt, &pt_len) != 0) return 12;
+            fwrite(pt, 1, pt_len, stdout);
+            fputc('\n', stdout);
             hl_snc_session_free(s);
             return 0;
           }
           C
-          clang app.c -o app \
-            -I . \
-            -L hardlock_snc/target/release \
-            -Wl,-rpath,@executable_path/../hardlock_snc/target/release \
-            -lhardlock_snc
+          clang app.c -o app -I . -L "hardlock_snc/target/release" -Wl,-rpath,@executable_path/../hardlock_snc/target/release -lhardlock_snc
           ./app | tee out.txt
-          test "$(cat out.txt)" = "hello"
+          [[ "$(cat out.txt | tr -d '\r')" == "hello" ]]
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-c-echo
+          name: macos-ffi-artifacts
           path: |
             hardlock_snc/target/release/libhardlock_snc.dylib
             hardlock_snc.h
 
-  android_ndk_so_only:
+  android_ndk_so:
+    name: Android • NDK .so (arm64-v8a)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
       - uses: nttld/setup-ndk@v1
         id: ndk
         with:
-          ndk-version: r26d
-      - name: Export ANDROID_NDK_HOME
+          ndk-version: r26.3.11579264
+      - name: Configurer l'environnement Android
         run: |
           echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-      - name: Install cargo-ndk + target
-        run: |
           rustup target add aarch64-linux-android
-          cargo install cargo-ndk
-      - name: Build .so (arm64-v8a, API 24)
+          cargo install --locked cargo-ndk
+      - name: Build libhardlock_snc.so (API 24)
         run: |
-          cargo ndk --platform 24 -t arm64-v8a -o target/android \
-            build -p hardlock-snc --release
+          cargo ndk --platform 24 -t arm64-v8a -o target/android build -p hardlock-snc --release
           test -f target/android/arm64-v8a/release/libhardlock_snc.so
       - uses: actions/upload-artifact@v4
         with:
-          name: android-ndk-so
+          name: android-ndk-libhardlock_snc
           path: |
             target/android/arm64-v8a/release/libhardlock_snc.so
             hardlock_snc.h
