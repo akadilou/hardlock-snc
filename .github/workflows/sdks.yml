@@ -3,6 +3,7 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+
 jobs:
   build-desktop:
     runs-on: ubuntu-latest
@@ -12,16 +13,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: rustc -vV && cargo -V && ls -la
       - run: cargo build --manifest-path hardlock_snc/Cargo.toml --release
-      - run: |
+      - name: Package desktop artifacts
+        run: |
           set -e
           mkdir -p dist/desktop
-          cp -v target/release/libhardlock_snc.* dist/desktop/ 2>/dev/null || true
+          cp -v target/release/libhardlock_snc.so dist/desktop/ 2>/dev/null || true
+          cp -v target/release/libhardlock_snc.dylib dist/desktop/ 2>/dev/null || true
+          cp -v target/release/hardlock_snc.dll dist/desktop/ 2>/dev/null || true
           cp -v include/hl_snc.h dist/desktop/ 2>/dev/null || true
           ls -la dist/desktop || true
       - uses: actions/upload-artifact@v4
         with:
           name: hardlock-snc-desktop
           path: dist/desktop
+
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -36,15 +41,17 @@ jobs:
         id: ndk
         with:
           ndk-version: r26d
-      - run: |
-          set -e
+      - name: Tooling + env
+        run: |
           rustup target add aarch64-linux-android
           echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
           echo "ANDROID_NDK=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
           rustc -vV && cargo -V
       - run: cargo install cargo-ndk
-      - run: cargo ndk -t arm64-v8a -o target/android build --manifest-path hardlock_snc/Cargo.toml --release
-      - run: |
+      - name: Build .so arm64-v8a
+        run: cargo ndk -t arm64-v8a -o target/android build --manifest-path hardlock_snc/Cargo.toml --release
+      - name: Package android artifacts
+        run: |
           set -e
           mkdir -p dist/android/arm64-v8a
           cp -v target/android/arm64-v8a/release/libhardlock_snc.so dist/android/arm64-v8a/ 2>/dev/null || true
