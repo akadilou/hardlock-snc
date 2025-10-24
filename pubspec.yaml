@@ -1,0 +1,7 @@
+name: tufkey_ffi_test
+description: test FFI Tufkey
+version: 0.1.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  ffi: ^2.1.0
