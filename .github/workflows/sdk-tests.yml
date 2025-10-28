@@ -18,14 +18,13 @@ jobs:
           tool: cbindgen
       - name: Build hardlock_snc (cdylib)
         run: |
-          cargo build --manifest-path hardlock_snc/Cargo.toml --release --locked
-          ls -lh hardlock_snc/target/release/
+          cargo build -p hardlock-snc --release --locked
           test -f hardlock_snc/target/release/libhardlock_snc.dylib
-      - name: Generate C header with cbindgen
+      - name: Générer le header C
         run: |
           cbindgen ./hardlock_snc --lang c --output hardlock_snc.h
           test -f hardlock_snc.h
-      - name: Test round-trip en C
+      - name: Round-trip C
         run: |
           cat > app.c <<'C'
           #include "hardlock_snc.h"
@@ -33,22 +32,25 @@ jobs:
           #include <stdio.h>
           #include <string.h>
           int main(void){
-            uint8_t ct[4096]; size_t ct_len = sizeof(ct);
-            uint8_t pt[4096]; size_t pt_len = sizeof(pt);
-            const char* msg = "hello";
-            void* s = hl_snc_session_new_initiator();
-            if (!s) { fprintf(stderr, "no session\n"); return 10; }
-            if (hl_snc_encrypt(s, (const uint8_t*)msg, strlen(msg), ct, &ct_len) != 0) return 11;
-            if (hl_snc_decrypt(s, ct, ct_len, pt, &pt_len) != 0) return 12;
-            fwrite(pt, 1, pt_len, stdout);
-            fputc('\n', stdout);
+            uint8_t ct[4096]; size_t ct_len=sizeof(ct);
+            uint8_t pt[4096]; size_t pt_len=sizeof(pt);
+            const char* msg="hello";
+            void* s=hl_snc_session_new_initiator();
+            if(!s) return 10;
+            if(hl_snc_encrypt(s,(const uint8_t*)msg,strlen(msg),ct,&ct_len)!=0) return 11;
+            if(hl_snc_decrypt(s,ct,ct_len,pt,&pt_len)!=0) return 12;
+            fwrite(pt,1,pt_len,stdout); fputc('\n',stdout);
             hl_snc_session_free(s);
             return 0;
           }
           C
-          clang app.c -o app -I . -L "hardlock_snc/target/release" -Wl,-rpath,@executable_path/../hardlock_snc/target/release -lhardlock_snc
-          ./app | tee out.txt
-          [[ "$(cat out.txt | tr -d '\r')" == "hello" ]]
+          clang app.c -o app \
+            -I . \
+            -L hardlock_snc/target/release \
+            -Wl,-rpath,@executable_path/../hardlock_snc/target/release \
+            -lhardlock_snc
+          out="$(./app | tr -d '\r')"
+          [ "$out" = "hello" ]
       - uses: actions/upload-artifact@v4
         with:
           name: macos-ffi-artifacts
@@ -64,37 +66,31 @@ jobs:
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-      - uses: nttld/setup-ndk@v1
-      - uses: nttld/setup-ndk@v1
-        id: ndk
-        with:
-          ndk-version: r26d
-      - name: Export ANDROID_NDK_HOME
-        run: echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-      - name: Fallback sdkmanager si besoin
+      - name: Installer cmdline-tools + NDK
         run: |
           set -e
-          if [ ! -d "$ANDROID_NDK_HOME" ]; then
-            sudo apt-get update && sudo apt-get install -y unzip curl
-            ANDROID_SDK_ROOT="$HOME/android-sdk"
-            mkdir -p "$ANDROID_SDK_ROOT"
-            curl -sLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-            unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools"/* "$ANDROID_SDK_ROOT/cmdline-tools/latest"/
-            export ANDROID_SDK_ROOT
-            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
-            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;26.3.11579264" >/dev/null
-            echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> $GITHUB_ENV
-          fi
-      - name: Configurer l'environnement Android
+          ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT"
+          curl -sLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools"/* "$ANDROID_SDK_ROOT/cmdline-tools/latest"/
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;26.3.11579264" >/dev/null
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> $GITHUB_ENV
+      - name: Outils Rust/NDK
         run: |
-          echo "ANDROID_NDK_HOME=${{ steps.ndk.outputs.ndk-path }}" >> $GITHUB_ENV
           rustup target add aarch64-linux-android
           cargo install --locked cargo-ndk
-      - name: Build libhardlock_snc.so (API 24)
+      - name: Générer le header C
         run: |
-          cargo ndk --platform 24 -t arm64-v8a -o target/android build -p hardlock-snc --release
+          cargo install --locked cbindgen || true
+          cbindgen ./hardlock_snc --lang c --output hardlock_snc.h
+      - name: Build .so API 24
+        run: |
+          cargo ndk --platform 24 -t arm64-v8a -o target/android \
+            build -p hardlock-snc --release
           test -f target/android/arm64-v8a/release/libhardlock_snc.so
       - uses: actions/upload-artifact@v4
         with:
