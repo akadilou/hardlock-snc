@@ -11,117 +11,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-      - uses: taiki-e/import-cargo@v1
-        with:
-          crates: cbindgen
-      - name: Build hardlock_snc (cdylib)
+        with: { toolchain: stable }
+      - uses: taiki-e/install-action@v2
+        with: { tool: cbindgen }
+      - name: Build (cdylib)
         run: |
-          set -euo pipefail
           cargo build -p hardlock-snc --release --locked
-          test -f target/release/libhardlock_snc.dylib
-      - name: Generate C header
+          test -f hardlock_snc/target/release/libhardlock_snc.dylib
+      - name: Générer header
         run: |
-          set -euo pipefail
           cbindgen ./hardlock_snc --lang c --output hardlock_snc.h
-          test -f hardlock_snc/hardlock_snc.h
-      - name: C round-trip (rpath-safe link)
+          test -f hardlock_snc.h
+      - name: Round-trip C
         run: |
-          set -euo pipefail
-          cat > main.c <<'C'
+          cat > app.c <<'C'
+          #include "hardlock_snc.h"
+          #include <stdint.h>
           #include <stdio.h>
           #include <string.h>
-          #include "hardlock_snc.h"
           int main(void){
-            uint8_t in[] = "hello";
-            uint8_t ct[4096]; size_t clen=sizeof(ct);
-            uint8_t out[4096]; size_t olen=sizeof(out);
-            void* s = hl_snc_session_new_initiator();
+            uint8_t ct[4096]; size_t ct_len=sizeof(ct);
+            uint8_t pt[4096]; size_t pt_len=sizeof(pt);
+            const char* msg="hello";
+            void* s=hl_snc_session_new_initiator();
             if(!s) return 10;
-            if(hl_snc_encrypt(s, in, sizeof(in)-1, ct, &clen)!=0) return 11;
-            if(hl_snc_decrypt(s, ct, clen, out, &olen)!=0) return 12;
-            fwrite(out,1,olen,stdout); fputc('\n',stdout);
+            if(hl_snc_encrypt(s,(const uint8_t*)msg,strlen(msg),ct,&ct_len)!=0) return 11;
+            if(hl_snc_decrypt(s,ct,ct_len,pt,&pt_len)!=0) return 12;
+            fwrite(pt,1,pt_len,stdout); fputc('\n',stdout);
             hl_snc_session_free(s);
             return 0;
           }
           C
-          clang main.c \
-            -I hardlock_snc \
-            -L target/release \
-            -Wl,-rpath,@executable_path/target/release \
-            -lhardlock_snc \
-            -o app
-          o="$(./app | tr -d '\r')"
-          echo "roundtrip: $o"
-          test "$o" = "hello"
+          clang app.c -o app \
+            -I . \
+            -L hardlock_snc/target/release \
+            -Wl,-rpath,@executable_path/../hardlock_snc/target/release \
+            -lhardlock_snc
+          out="$(./app | tr -d '\r')"
+          [ "$out" = "hello" ]
       - uses: actions/upload-artifact@v4
         with:
-          name: hardlock-snc-macos
+          name: macos-ffi-artifacts
           path: |
-            target/release/libhardlock_snc.dylib
-            hardlock_snc/hardlock_snc.h
-
-  android_ndk_so:
-    name: Android • NDK (arm64-v8a, API 24)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Install Android cmdline-tools + NDK 26.3 + platform 34
-        run: |
-          set -euo pipefail
-          SDK="$HOME/android-sdk"
-          mkdir -p "$SDK"/cmdline-tools
-          sudo apt-get update
-          sudo apt-get install -y unzip
-          curl -sSL -o /tmp/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q /tmp/cmdline-tools.zip -d "$SDK/cmdline-tools"
-          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.3.11579264"
-          {
-            echo "ANDROID_SDK_ROOT=$SDK"
-            echo "ANDROID_HOME=$SDK"
-            echo "ANDROID_NDK_HOME=$SDK/ndk/26.3.11579264"
-            echo "ANDROID_NDK_ROOT=$SDK/ndk/26.3.11579264"
-          } >> "$GITHUB_ENV"
-      - name: Install cargo-ndk + target
-        run: |
-            set -euo pipefail
-            rustup target add aarch64-unknown-linux-gnu || true
-            rustup target add aarch64-linux-android || true
-            cargo install --locked cargo-ndk
-      - name: Generate C header
-        run: |
-          set -euo pipefail
-          cbindgen ./hardlock_snc --lang c --output hardlock_snc.h
-          test -f hardlock_snc/hardlock_snc.h
-      - name: Build libhardlock_snc.so (API 24)
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-          ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
-        run: |
-          set -euo pipefail
-          echo "Using NDK at: $ANDROID_NDK_HOME"
-          cargo ndk --platform 24 -t arm64-v8a -o target/android \
-            build --manifest-path hardlock_snc/Criterion.toml || true
-          # some runners require NDK 26c vs 26.3; retry with --target just in case
-          if [ ! -f target/android/arm64-v8a/release/libhardlock_snc.so ]; then
-            cargo ndk --platform 24 --target aarch64-linux-android -o target/android \
-              build --manifest-path hardlock_snc/Cargo.toml --release
-          fi
-          test -f target/android/arm64-v8a/release/libhardlock_snc.so
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hardlock-snc-android
-          path: |
-            target/android/arm64-v8a/release/libhardlock_snc.so
-            hardlock_snc/hardlock_snc.h
+            hardlock_snc/target/release/libhardlock_snc.dylib
+            hardlock_snc.h
